@@ -30,6 +30,25 @@ This project uses **two separate exclude files** for different sync operations:
 - `make pull` downloads most files including `.storage/` (excluding sensitive auth files) for local reference
 - `make push` writes never overwrites HA's runtime state (`.storage/`)
 
+## API Sync (no SSH, e.g. cloud sessions / Nabu Casa)
+
+When SSH is not available, use the HTTP API instead of rsync. It needs only
+`HA_URL` and an admin `HA_TOKEN` (environment or `.env`).
+
+- `make check-api` - Test REST + WebSocket access
+- `make pull-api` - Download UI-managed `automations.yaml`, `scripts.yaml`,
+  `scenes.yaml` and the entity/device/area registries (into `config/.storage/`)
+- `make push-api` - Validate, then save changed items through HA's config API.
+  HA writes its own YAML files and reloads automatically.
+  `ARGS='--dry-run'` previews; items only in HA are deleted only with `ARGS='--delete'`
+
+Limits of API mode:
+- `configuration.yaml`, packages and other files are not readable. Pull writes a
+  local **stub** `configuration.yaml`; it is never pushed.
+- Automations/scripts defined in packages are written to `config/readonly/` for
+  reference only. Edits there are never pushed.
+- Push refuses to run until `pull-api` has been run against the same `HA_URL`.
+
 ## What This Repo Can and Cannot Manage
 
 ### SAFE TO MANAGE (YAML files)

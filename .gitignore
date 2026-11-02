@@ -3,6 +3,8 @@
 # Secrets and sensitive data
 config/secrets.yaml
 config/.storage/
+# Read-only copies of package-defined automations/scripts (tools/ha_api_sync.py)
+config/readonly/
 config/home-assistant.log*
 config/OZW_Log.txt
 config/ip_bans.yaml

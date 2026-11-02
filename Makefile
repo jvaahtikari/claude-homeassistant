@@ -20,7 +20,7 @@ YELLOW = \033[1;33m
 RED = \033[0;31m
 NC = \033[0m # No Color
 
-.PHONY: help pull push validate backup clean setup test status entities reload format-yaml check-env
+.PHONY: help pull push pull-api push-api check-api validate backup clean setup test status entities reload format-yaml check-env
 
 # Default target
 help:
@@ -29,6 +29,10 @@ help:
 	@echo "Available commands:"
 	@echo "  $(YELLOW)pull$(NC)     - Pull latest config from Home Assistant"
 	@echo "  $(YELLOW)push$(NC)     - Push local config to Home Assistant (with validation)"
+	@echo "  $(YELLOW)pull-api$(NC) - Pull automations/scripts/scenes + registries via HA API (no SSH)"
+	@echo "  $(YELLOW)push-api$(NC) - Validate, then push changed automations/scripts/scenes via HA API"
+	@echo "             (ARGS='--dry-run' to preview, ARGS='--delete' to remove items missing locally)"
+	@echo "  $(YELLOW)check-api$(NC) - Test HA REST and WebSocket API access (HA_URL, HA_TOKEN)"
 	@echo "  $(YELLOW)validate$(NC) - Run all validation tests"
 	@echo "  $(YELLOW)backup$(NC)   - Create timestamped backup of current config"
 	@echo "  $(YELLOW)setup$(NC)    - Set up Python environment and dependencies"
@@ -59,6 +63,24 @@ push: check-env
 	@. $(VENV_PATH)/bin/activate && python $(TOOLS_PATH)/reload_config.py
 	@echo "$(GREEN)Configuration deployment complete!$(NC)"
 
+# Pull via the Home Assistant HTTP API (works over Nabu Casa, no SSH needed)
+pull-api: check-setup
+	@echo "$(GREEN)Pulling configuration via Home Assistant API...$(NC)"
+	@. $(VENV_PATH)/bin/activate && python $(TOOLS_PATH)/ha_api_sync.py pull
+	@echo "$(YELLOW)Running validation to ensure integrity...$(NC)"
+	@$(MAKE) validate
+
+# Push via the Home Assistant HTTP API (HA saves and reloads the items itself)
+push-api: check-setup
+	@echo "$(GREEN)Validating configuration before push...$(NC)"
+	@$(MAKE) validate
+	@echo "$(GREEN)Validation passed! Pushing via Home Assistant API...$(NC)"
+	@. $(VENV_PATH)/bin/activate && python $(TOOLS_PATH)/ha_api_sync.py push $(ARGS)
+
+# Test API access
+check-api: check-setup
+	@. $(VENV_PATH)/bin/activate && python $(TOOLS_PATH)/ha_api_sync.py check
+
 # Run all validation tests
 validate: check-setup
 	@echo "$(GREEN)Running Home Assistant configuration validation...$(NC)"
@@ -81,7 +103,7 @@ setup:
 	@echo "$(GREEN)Setting up Python environment...$(NC)"
 	@python3 -m venv $(VENV_PATH)
 	@. $(VENV_PATH)/bin/activate && pip install --upgrade pip
-	@. $(VENV_PATH)/bin/activate && pip install homeassistant voluptuous pyyaml jsonschema requests
+	@. $(VENV_PATH)/bin/activate && pip install homeassistant voluptuous pyyaml jsonschema requests websockets
 	@echo "$(GREEN)Setup complete!$(NC)"
 
 # Show configuration status

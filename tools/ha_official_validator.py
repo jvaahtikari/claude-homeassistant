@@ -5,8 +5,10 @@ This leverages Home Assistant's own validation tools for the most
 accurate results.
 """
 
+import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import List
 
@@ -23,6 +25,21 @@ class HAOfficialValidator:
 
     def run_ha_check_config(self) -> bool:
         """Run Home Assistant's official check_config script."""
+        # Registries pulled with tools/ha_api_sync.py are assembled from API
+        # responses, not HA's own storage files, so check_config cannot load
+        # them. Check a copy without .storage instead; entity references are
+        # covered by the reference validator.
+        if (self.config_dir / ".storage" / "api_sync_pulled_from").exists():
+            with tempfile.TemporaryDirectory() as tmp:
+                copy = Path(tmp) / "config"
+                shutil.copytree(
+                    self.config_dir, copy, ignore=shutil.ignore_patterns(".storage")
+                )
+                self.info.append("Checked without .storage (pulled via API)")
+                return self._check_config(copy)
+        return self._check_config(self.config_dir)
+
+    def _check_config(self, config_dir: Path) -> bool:
         try:
             # Use the hass command to check configuration
             cmd = [
@@ -30,7 +47,7 @@ class HAOfficialValidator:
                 "-m",
                 "homeassistant",
                 "--config",
-                str(self.config_dir),
+                str(config_dir),
                 "--script",
                 "check_config",
             ]
@@ -41,7 +58,7 @@ class HAOfficialValidator:
                 capture_output=True,
                 text=True,
                 timeout=120,
-                cwd=str(self.config_dir),
+                cwd=str(config_dir),
             )
 
             # Parse the output
